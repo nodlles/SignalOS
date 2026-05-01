@@ -7,6 +7,7 @@ import { createMediaPackage, assertRightsStatus } from "./media.js";
 import { rankScore, scoreItem } from "./score.js";
 import { summarizeItem, testLlm } from "./summarize.js";
 import { loadItems, loadState, saveState, selectWindowItems, upsertItems, saveItems } from "./store.js";
+import { fetchYouTubeTranscript, resolveYouTubeFeedUrl } from "./ingest/youtube.js";
 
 const args = process.argv.slice(2);
 const command = args[0] || "help";
@@ -27,6 +28,7 @@ async function main(command, argv) {
   if (command === "run") return cmdRun(argv);
   if (command === "llm") return cmdLlm(argv);
   if (command === "media") return cmdMedia(argv);
+  if (command === "youtube") return cmdYoutube(argv);
   throw new Error(`Unknown command: ${command}`);
 }
 
@@ -35,7 +37,7 @@ function cmdInit(argv) {
   console.log(result.created ? `Created ${result.path}` : `${result.path} already exists`);
 }
 
-function cmdSources(argv) {
+async function cmdSources(argv) {
   const sub = argv[0];
   const config = loadConfig();
   if (sub === "list") {
@@ -53,12 +55,21 @@ function cmdSources(argv) {
     console.log(`Added source: ${name}`);
     return;
   }
+  if (sub === "add-youtube") {
+    const [name, channel] = argv.slice(1);
+    if (!name || !channel) throw new Error("Usage: signalos sources add-youtube <name> <channelId|channelUrl|feedUrl> [--quality 1-10]");
+    const url = await resolveYouTubeFeedUrl(channel);
+    config.sources.push({ name, url, type: "youtube", quality: Number(readOption(argv, "--quality") || 8) });
+    saveConfig(config);
+    console.log(`Added YouTube source: ${name}\t${url}`);
+    return;
+  }
   throw new Error("Usage: signalos sources list|add");
 }
 
 async function cmdIngest(argv) {
   const { config, window } = loadContext(argv);
-  const { items, errors } = await ingestSources(config.sources, window);
+  const { items, errors } = await ingestSources(selectSources(config.sources, argv), window);
   reportErrors(errors);
   if (argv.includes("--dry-run")) {
     console.log(`Fetched ${items.length} item(s), dry-run only.`);
@@ -71,7 +82,7 @@ async function cmdIngest(argv) {
 
 async function cmdBrief(argv) {
   const { config, state, window } = loadContext(argv);
-  const items = selectWindowItems(loadItems(), window.since, window.until);
+  const items = filterItemsBySource(selectWindowItems(loadItems(), window.since, window.until), argv);
   const processed = await processItems(items, config, {
     offline: argv.includes("--offline"),
     refresh: argv.includes("--refresh"),
@@ -86,7 +97,7 @@ async function cmdBrief(argv) {
 
 async function cmdRun(argv) {
   const { config, state, window } = loadContext(argv);
-  const { items, errors } = await ingestSources(config.sources, window);
+  const { items, errors } = await ingestSources(selectSources(config.sources, argv), window);
   reportErrors(errors);
   if (argv.includes("--dry-run")) {
     console.log(`Window ${window.since.toISOString()} -> ${window.until.toISOString()}`);
@@ -95,7 +106,7 @@ async function cmdRun(argv) {
     return;
   }
   upsertItems(items);
-  const selected = selectWindowItems(loadItems(), window.since, window.until);
+  const selected = filterItemsBySource(selectWindowItems(loadItems(), window.since, window.until), argv);
   const processed = await processItems(selected, config, {
     offline: argv.includes("--offline"),
     refresh: argv.includes("--refresh"),
@@ -169,6 +180,24 @@ function cmdMedia(argv) {
   throw new Error("Usage: signalos media package|rights <itemId>");
 }
 
+async function cmdYoutube(argv) {
+  const sub = argv[0];
+  if (sub === "transcript") {
+    const target = argv[1];
+    if (!target) throw new Error("Usage: signalos youtube transcript <videoId|url>");
+    const transcript = await fetchYouTubeTranscript(target);
+    console.log(transcript || "No transcript found.");
+    return;
+  }
+  if (sub === "feed-url") {
+    const target = argv[1];
+    if (!target) throw new Error("Usage: signalos youtube feed-url <channelId|channelUrl|feedUrl>");
+    console.log(await resolveYouTubeFeedUrl(target));
+    return;
+  }
+  throw new Error("Usage: signalos youtube transcript|feed-url");
+}
+
 function maskLlmConfig(llm) {
   return {
     ...llm,
@@ -220,6 +249,22 @@ function readOption(argv, name) {
   return index >= 0 ? argv[index + 1] : undefined;
 }
 
+function selectSources(sources, argv) {
+  const sourceName = readOption(argv, "--source");
+  if (!sourceName) return sources;
+  const selected = sources.filter((source) => source.name === sourceName);
+  if (selected.length === 0) {
+    throw new Error(`Source not found: ${sourceName}`);
+  }
+  return selected;
+}
+
+function filterItemsBySource(items, argv) {
+  const sourceName = readOption(argv, "--source");
+  if (!sourceName) return items;
+  return items.filter((item) => item.sourceName === sourceName);
+}
+
 function reportErrors(errors) {
   for (const error of errors) {
     console.error(`Warning: ${error.source}: ${error.error}`);
@@ -233,12 +278,15 @@ Usage:
   signalos init [--force]
   signalos sources list
   signalos sources add <name> <url> [--type rss|youtube|podcast] [--quality 1-10]
-  signalos ingest [--since ISO] [--until ISO] [--dry-run]
-  signalos brief [--since ISO] [--until ISO] [--offline] [--refresh] [--limit n]
-  signalos run [--since ISO] [--until ISO] [--dry-run] [--offline] [--refresh] [--limit n]
+  signalos sources add-youtube <name> <channelId|channelUrl|feedUrl> [--quality 1-10]
+  signalos ingest [--source name] [--since ISO] [--until ISO] [--dry-run]
+  signalos brief [--source name] [--since ISO] [--until ISO] [--offline] [--refresh] [--limit n]
+  signalos run [--source name] [--since ISO] [--until ISO] [--dry-run] [--offline] [--refresh] [--limit n]
   signalos llm config
   signalos llm set [--provider name] [--base-url url] [--api-style chat_completions|responses] [--model id] [--api-key-env name]
   signalos llm test [--prompt text]
+  signalos youtube transcript <videoId|url>
+  signalos youtube feed-url <channelId|channelUrl|feedUrl>
   signalos media package <itemId> [--platform bilibili|xiaohongshu|douyin|wechat]
   signalos media rights <itemId> <rightsStatus>
 `);

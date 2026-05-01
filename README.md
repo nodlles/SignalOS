@@ -38,15 +38,40 @@ node src/cli.js run
 signalos init [--force]
 signalos sources list
 signalos sources add <name> <url> [--type rss|youtube|podcast]
-signalos ingest [--since ISO] [--until ISO] [--dry-run]
-signalos brief [--since ISO] [--until ISO] [--offline] [--refresh] [--limit n]
-signalos run [--since ISO] [--until ISO] [--dry-run] [--offline] [--refresh] [--limit n]
+signalos sources add-youtube <name> <channelId|channelUrl|feedUrl>
+signalos ingest [--source name] [--since ISO] [--until ISO] [--dry-run]
+signalos brief [--source name] [--since ISO] [--until ISO] [--offline] [--refresh] [--limit n]
+signalos run [--source name] [--since ISO] [--until ISO] [--dry-run] [--offline] [--refresh] [--limit n]
 signalos llm config
 signalos llm set [--provider name] [--base-url url] [--api-style chat_completions|responses] [--model id] [--api-key-env name]
 signalos llm test [--prompt text]
+signalos youtube transcript <videoId|url>
+signalos youtube feed-url <channelId|channelUrl|feedUrl>
 signalos media package <itemId> [--platform bilibili|xiaohongshu|douyin|wechat]
 signalos media rights <itemId> <status>
 ```
+
+## YouTube / Podcast
+
+YouTube channel RSS 可以直接加入信源：
+
+```bash
+node src/cli.js sources add-youtube "AI Engineer" "UCxxxxxxxxxxxxxxxxxxxxxx"
+node src/cli.js sources add-youtube "Some Channel" "https://www.youtube.com/feeds/videos.xml?channel_id=UC..."
+```
+
+摄取时会自动尝试通过 YouTube caption 接口拉字幕：
+
+- 有字幕：字幕进入摘要上下文
+- 没字幕：保留标题、描述、链接，并在评分上自然降权
+
+单独测试视频字幕：
+
+```bash
+node src/cli.js youtube transcript "https://www.youtube.com/watch?v=VIDEO_ID"
+```
+
+在 zsh 里，带 `?` 的 URL 需要加引号。
 
 ## 太石 LLM 网关
 

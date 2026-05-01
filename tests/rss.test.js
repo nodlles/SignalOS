@@ -35,4 +35,22 @@ assert.equal(sitemapItems[0].url, "https://example.com/news/claude-code-update")
 assert.equal(sitemapItems[0].publishedAt, "2026-04-30T10:00:00.000Z");
 assert.match(sitemapItems[0].content, /claude code update/);
 
+const youtubeItems = parseFeed(`<?xml version="1.0"?>
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns:media="http://search.yahoo.com/mrss/">
+  <entry>
+    <yt:videoId>dQw4w9WgXcQ</yt:videoId>
+    <title>Agent Demo</title>
+    <link rel="alternate" href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"/>
+    <published>2026-04-30T09:00:00+00:00</published>
+    <media:group>
+      <media:description>Demo of a production agent workflow.</media:description>
+    </media:group>
+  </entry>
+</feed>`, { ...source, type: "youtube" });
+
+assert.equal(youtubeItems.length, 1);
+assert.equal(youtubeItems[0].videoId, "dQw4w9WgXcQ");
+assert.equal(youtubeItems[0].sourceType, "youtube");
+assert.match(youtubeItems[0].content, /production agent workflow/);
+
 console.log("rss parser tests passed");

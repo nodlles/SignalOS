@@ -22,6 +22,7 @@ export function parseFeed(xml, source) {
   const blocks = atomEntries.length > 0 ? atomEntries : matchBlocks(xml, "url");
   return blocks.map((entry) => {
     const link = cleanXml(readLink(entry) || readTag(entry, "loc"));
+    const videoId = cleanXml(readTag(entry, "yt:videoId"));
     const title = cleanXml(readTag(entry, "title") || titleFromUrl(link) || "Untitled");
     const published = cleanXml(
         readTag(entry, "pubDate") ||
@@ -33,6 +34,7 @@ export function parseFeed(xml, source) {
     const content = cleanXml(
       readTag(entry, "content:encoded") ||
         readTag(entry, "summary") ||
+        readTag(entry, "media:description") ||
         readTag(entry, "description") ||
         titleFromUrl(link) ||
         title
@@ -47,6 +49,7 @@ export function parseFeed(xml, source) {
       publishedAt: normalizeDate(published),
       fetchedAt: new Date().toISOString(),
       content,
+      videoId: videoId || undefined,
       rightsStatus: source.type === "youtube" || source.type === "podcast" ? "commentary_fair_use_review" : undefined,
       transformCandidates: source.type === "youtube" || source.type === "podcast" ? [] : undefined
     };

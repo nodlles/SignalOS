@@ -27,7 +27,9 @@
  * @property {string} fetchedAt
  * @property {string} content
  * @property {string} [contentSource]
+ * @property {string} [videoId]
  * @property {string} [transcript]
+ * @property {string} [transcriptSource]
  * @property {SignalSummary} [summary]
  * @property {number} [score]
  * @property {Rank} [rank]
