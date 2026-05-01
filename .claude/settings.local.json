@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npm test *)",
+      "Bash(node src/cli.js run --dry-run --offline)",
+      "Bash(export LLM_TOKEN=\"VHAgeJe7JQTAxR2WC1AbFdE1224d42A6A8E62bBcB2F89b08\")",
+      "Bash(node src/cli.js llm test)",
+      "Bash(node src/cli.js run --refresh)",
+      "Bash(node *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -A \"Mozilla/5.0 \\(SignalOS verify\\)\" -L --max-time 30 \"https://hnrss.org/frontpage?points=200\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -A \"Mozilla/5.0 \\(SignalOS verify\\)\" -L --max-time 15 \"https://blog.vllm.ai/atom.xml\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -A \"Mozilla/5.0 \\(SignalOS verify\\)\" -L --max-time 15 \"https://mistral.ai/feed\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -A \"Mozilla/5.0 \\(SignalOS verify\\)\" -L --max-time 15 \"https://qwenlm.github.io/blog/index.xml\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -A \"Mozilla/5.0 \\(SignalOS verify\\)\" -L --max-time 15 \"https://qwenlm.github.io/feed.xml\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -A \"Mozilla/5.0 \\(SignalOS verify\\)\" -L --max-time 15 \"https://blog.vllm.ai/\")",
+      "Bash(curl -s -A \"Mozilla/5.0 \\(SignalOS verify\\)\" -L --max-time 15 \"https://blog.vllm.ai/\")",
+      "Bash(curl -s -A \"Mozilla/5.0 \\(SignalOS verify\\)\" -L --max-time 15 \"https://mistral.ai/news\")",
+      "Bash(curl -s -A \"Mozilla/5.0 \\(SignalOS verify\\)\" -L --max-time 15 \"https://qwenlm.github.io/blog/\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -A \"Mozilla/5.0 \\(SignalOS verify\\)\" -L --max-time 15 \"https://blog.vllm.ai/rss.xml\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -A \"Mozilla/5.0 \\(SignalOS verify\\)\" -L --max-time 15 \"https://vllm.ai/blog/rss.xml\")",
+      "Bash(curl -s -A \"Mozilla/5.0 \\(SignalOS verify\\)\" -L --max-time 15 \"https://blog.vllm.ai/rss.xml\")",
+      "Bash(curl -s -A \"Mozilla/5.0 \\(SignalOS verify\\)\" -L --max-time 30 \"https://hnrss.org/frontpage?points=200\")",
+      "Bash(curl -s -A \"Mozilla/5.0 \\(SignalOS verify\\)\" -L --max-time 15 \"https://blog.langchain.dev/rss/\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -A \"Mozilla/5.0 \\(SignalOS verify\\)\" -L --max-time 15 \"https://blog.langchain.dev/rss\")",
+      "Bash(curl -s -A \"Mozilla/5.0 \\(SignalOS verify\\)\" -L --max-time 15 \"https://blog.langchain.dev/rss\")",
+      "Bash(curl -s \"https://api.telegram.org/bot5897880305:AAH5hVTboQDvBDn4vvWeZ70ffm1awKqy04I/getMe\")",
+      "Bash(curl -s \"https://api.telegram.org/bot5897880305:AAH5hVTboQDvBDn4vvWeZ70ffm1awKqy04I/getUpdates\")",
+      "Bash(curl *)",
+      "Read(//Users/lixin/**)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(chmod +x *)",
+      "Bash(launchctl unload *)",
+      "Bash(launchctl load *)",
+      "Bash(launchctl list *)",
+      "Bash(launchctl start *)"
+    ]
+  }
+}

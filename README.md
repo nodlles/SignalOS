@@ -109,6 +109,63 @@ node src/cli.js llm set --model claude-sonnet-4.5
 node src/cli.js llm set --model moonshotai/kimi-k2-0905
 ```
 
+## 自动化运行
+
+在 macOS 上配置 launchd，每天早上自动生成并发送 DailyBrief 到 Telegram。
+
+### 1. 配置环境变量
+
+把以下内容加到 `~/.zshrc`（或你用的 shell 配置文件）：
+
+```bash
+# SignalOS DailyBrief
+export LLM_TOKEN="你的太石网关 token"
+export TELEGRAM_BOT_TOKEN="你的 Telegram bot token"
+export TELEGRAM_CHAT_ID="你的 Telegram chat_id"
+```
+
+然后 `source ~/.zshrc` 或重启终端。
+
+### 2. 启动服务
+
+```bash
+# 加载 launchd 配置（已包含在仓库中）
+launchctl load ~/Library/LaunchAgents/com.signalos.daily.plist
+
+# 查看是否加载成功
+launchctl list | grep signalos
+```
+
+默认每天 **07:55** 本地时间运行（完成时间约 08:00，出门前）。
+
+### 3. 手动测试
+
+```bash
+# 手动运行一次
+./scripts/daily.sh
+
+# 查看日志
+tail -f .signalos/logs/daily.log
+```
+
+### 4. 停止/卸载
+
+```bash
+# 停止
+launchctl unload ~/Library/LaunchAgents/com.signalos.daily.plist
+
+# 完全卸载（删除配置文件）
+rm ~/Library/LaunchAgents/com.signalos.daily.plist
+```
+
+### 5. 日志位置
+
+- 主日志：`.signalos/logs/daily.log`
+- launchd stdout：`.signalos/logs/daily-stdout.log`
+- launchd stderr：`.signalos/logs/daily-stderr.log`
+
+Telegram 通知只包含 P0/P1 头条，完整 brief 请查看 `briefs/YYYY-MM-DD.md`。
+
 ## 视频发布工作流边界
 
 SignalOS 把翻译视频发布视为独立的 `Transform & Publish` 工作流，而不是原样搬运。
