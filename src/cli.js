@@ -3,6 +3,7 @@ import fs from "node:fs";
 import { initConfig, loadConfig, saveConfig, getBriefWindow } from "./config.js";
 import { ingestSources } from "./ingest/index.js";
 import { renderBrief, writeBrief } from "./brief.js";
+import { attachSummaryCache, hasValidSummaryCache } from "./cache.js";
 import { createMediaPackage, assertRightsStatus } from "./media.js";
 import { getDiscardReason, rankScore, scoreItem } from "./score.js";
 import { summarizeItem, testLlm } from "./summarize.js";
@@ -230,10 +231,12 @@ async function processItems(items, config, options) {
       processed.push({ ...item, score: 0, rank: "discarded", discardReason });
       continue;
     }
-    options.logger?.(`summarize ${index}/${selectedItems.length}: ${item.sourceName} - ${item.title}`);
-    const summary = !options.refresh && item.summary ? item.summary : await summarizeItem(item, config, options);
+    const cached = !options.refresh && hasValidSummaryCache(item, config);
+    options.logger?.(`${cached ? "cache hit" : "summarize"} ${index}/${selectedItems.length}: ${item.sourceName} - ${item.title}`);
+    const summary = cached ? item.summary : await summarizeItem(item, config, options);
+    const itemWithSummary = cached ? item : attachSummaryCache(item, config, summary);
     const scoreInput = {
-      ...item,
+      ...itemWithSummary,
       summary,
       content: [
         summary.whatHappened,
@@ -243,8 +246,8 @@ async function processItems(items, config, options) {
       ].join(" ")
     };
     const score = scoreItem(scoreInput, quality.get(item.sourceName) || 5);
-    const rank = rankScore(score, item);
-    processed.push({ ...item, summary, score, rank });
+    const rank = rankScore(score, itemWithSummary);
+    processed.push({ ...itemWithSummary, score, rank });
   }
   options.logger?.(`brief candidates: ${processed.filter((item) => item.rank !== "discarded").length}/${processed.length}`);
   return processed.sort((a, b) => (b.score || 0) - (a.score || 0));
