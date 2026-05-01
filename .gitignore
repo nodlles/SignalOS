@@ -1,0 +1,7 @@
+.signalos/
+.omx/
+signalos.config
+briefs/
+node_modules/
+dist/
+.DS_Store
