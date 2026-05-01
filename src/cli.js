@@ -4,7 +4,7 @@ import { initConfig, loadConfig, saveConfig, getBriefWindow } from "./config.js"
 import { ingestSources } from "./ingest/index.js";
 import { renderBrief, writeBrief } from "./brief.js";
 import { createMediaPackage, assertRightsStatus } from "./media.js";
-import { rankScore, scoreItem } from "./score.js";
+import { getDiscardReason, rankScore, scoreItem } from "./score.js";
 import { summarizeItem, testLlm } from "./summarize.js";
 import { loadItems, loadState, saveState, selectWindowItems, upsertItems, saveItems } from "./store.js";
 import { fetchYouTubeTranscript, resolveYouTubeFeedUrl } from "./ingest/youtube.js";
@@ -69,7 +69,10 @@ async function cmdSources(argv) {
 
 async function cmdIngest(argv) {
   const { config, window } = loadContext(argv);
-  const { items, errors } = await ingestSources(selectSources(config.sources, argv), window);
+  const logger = createLogger(argv);
+  const sources = selectSources(config.sources, argv);
+  logger(`ingest: ${sources.length} source(s), ${window.since.toISOString()} -> ${window.until.toISOString()}`);
+  const { items, errors } = await ingestSources(sources, window, { logger });
   reportErrors(errors);
   if (argv.includes("--dry-run")) {
     console.log(`Fetched ${items.length} item(s), dry-run only.`);
@@ -82,11 +85,14 @@ async function cmdIngest(argv) {
 
 async function cmdBrief(argv) {
   const { config, state, window } = loadContext(argv);
+  const logger = createLogger(argv);
   const items = filterItemsBySource(selectWindowItems(loadItems(), window.since, window.until), argv);
+  logger(`brief: ${items.length} stored item(s) in window`);
   const processed = await processItems(items, config, {
     offline: argv.includes("--offline"),
     refresh: argv.includes("--refresh"),
-    limit: Number(readOption(argv, "--limit") || 0)
+    limit: Number(readOption(argv, "--limit") || 0),
+    logger
   });
   const markdown = renderBrief(processed, window);
   const file = writeBrief(markdown, window.until);
@@ -97,7 +103,10 @@ async function cmdBrief(argv) {
 
 async function cmdRun(argv) {
   const { config, state, window } = loadContext(argv);
-  const { items, errors } = await ingestSources(selectSources(config.sources, argv), window);
+  const logger = createLogger(argv);
+  const sources = selectSources(config.sources, argv);
+  logger(`run: ${sources.length} source(s), ${window.since.toISOString()} -> ${window.until.toISOString()}`);
+  const { items, errors } = await ingestSources(sources, window, { logger });
   reportErrors(errors);
   if (argv.includes("--dry-run")) {
     console.log(`Window ${window.since.toISOString()} -> ${window.until.toISOString()}`);
@@ -107,10 +116,12 @@ async function cmdRun(argv) {
   }
   upsertItems(items);
   const selected = filterItemsBySource(selectWindowItems(loadItems(), window.since, window.until), argv);
+  logger(`run: ${selected.length} item(s) selected for scoring/summarization`);
   const processed = await processItems(selected, config, {
     offline: argv.includes("--offline"),
     refresh: argv.includes("--refresh"),
-    limit: Number(readOption(argv, "--limit") || 0)
+    limit: Number(readOption(argv, "--limit") || 0),
+    logger
   });
   saveItems(mergeProcessed(loadItems(), processed));
   const markdown = renderBrief(processed, window);
@@ -210,7 +221,16 @@ async function processItems(items, config, options) {
   const quality = new Map(config.sources.map((source) => [source.name, source.quality || 5]));
   const selectedItems = options.limit > 0 ? items.slice(0, options.limit) : items;
   const processed = [];
+  let index = 0;
   for (const item of selectedItems) {
+    index += 1;
+    const discardReason = getDiscardReason(item);
+    if (discardReason) {
+      options.logger?.(`skip ${index}/${selectedItems.length}: ${item.sourceName} - ${item.title} (${discardReason})`);
+      processed.push({ ...item, score: 0, rank: "discarded", discardReason });
+      continue;
+    }
+    options.logger?.(`summarize ${index}/${selectedItems.length}: ${item.sourceName} - ${item.title}`);
     const summary = !options.refresh && item.summary ? item.summary : await summarizeItem(item, config, options);
     const scoreInput = {
       ...item,
@@ -226,6 +246,7 @@ async function processItems(items, config, options) {
     const rank = rankScore(score, item);
     processed.push({ ...item, summary, score, rank });
   }
+  options.logger?.(`brief candidates: ${processed.filter((item) => item.rank !== "discarded").length}/${processed.length}`);
   return processed.sort((a, b) => (b.score || 0) - (a.score || 0));
 }
 
@@ -271,6 +292,11 @@ function reportErrors(errors) {
   }
 }
 
+function createLogger(argv) {
+  if (argv.includes("--quiet")) return undefined;
+  return (message) => console.error(`[signalos] ${message}`);
+}
+
 function printHelp() {
   console.log(`SignalOS
 
@@ -279,9 +305,9 @@ Usage:
   signalos sources list
   signalos sources add <name> <url> [--type rss|youtube|podcast] [--quality 1-10]
   signalos sources add-youtube <name> <channelId|channelUrl|feedUrl> [--quality 1-10]
-  signalos ingest [--source name] [--since ISO] [--until ISO] [--dry-run]
-  signalos brief [--source name] [--since ISO] [--until ISO] [--offline] [--refresh] [--limit n]
-  signalos run [--source name] [--since ISO] [--until ISO] [--dry-run] [--offline] [--refresh] [--limit n]
+  signalos ingest [--source name] [--since ISO] [--until ISO] [--dry-run] [--quiet]
+  signalos brief [--source name] [--since ISO] [--until ISO] [--offline] [--refresh] [--limit n] [--quiet]
+  signalos run [--source name] [--since ISO] [--until ISO] [--dry-run] [--offline] [--refresh] [--limit n] [--quiet]
   signalos llm config
   signalos llm set [--provider name] [--base-url url] [--api-style chat_completions|responses] [--model id] [--api-key-env name]
   signalos llm test [--prompt text]
