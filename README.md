@@ -42,6 +42,7 @@ signalos sources add-youtube <name> <channelId|channelUrl|feedUrl>
 signalos ingest [--source name] [--since ISO] [--until ISO] [--dry-run] [--quiet]
 signalos brief [--source name] [--since ISO] [--until ISO] [--offline] [--refresh] [--limit n] [--quiet]
 signalos run [--source name] [--since ISO] [--until ISO] [--dry-run] [--offline] [--refresh] [--limit n] [--quiet]
+signalos status
 signalos llm config
 signalos llm set [--provider name] [--base-url url] [--api-style chat_completions|responses] [--model id] [--api-key-env name]
 signalos llm test [--prompt text]

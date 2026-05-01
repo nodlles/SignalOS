@@ -7,8 +7,8 @@
     "signalos": "./src/cli.js"
   },
   "scripts": {
-    "check": "node --check src/cli.js && node --check src/config.js && node --check src/store.js && node --check src/cache.js && node --check src/ingest/rss.js && node --check src/ingest/page.js && node --check src/ingest/youtube.js && node --check src/summarize.js && node --check src/score.js && node --check src/brief.js && node --check src/media.js",
-    "test": "node tests/rss.test.js && node tests/page.test.js && node tests/youtube.test.js && node tests/score.test.js && node tests/cache.test.js",
+    "check": "node --check src/cli.js && node --check src/config.js && node --check src/store.js && node --check src/cache.js && node --check src/runReport.js && node --check src/ingest/rss.js && node --check src/ingest/page.js && node --check src/ingest/youtube.js && node --check src/summarize.js && node --check src/score.js && node --check src/brief.js && node --check src/media.js",
+    "test": "node tests/rss.test.js && node tests/page.test.js && node tests/youtube.test.js && node tests/score.test.js && node tests/cache.test.js && node tests/runReport.test.js",
     "smoke": "node src/cli.js init --force && node src/cli.js sources list && node src/cli.js run --dry-run --offline"
   },
   "engines": {

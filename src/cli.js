@@ -9,6 +9,7 @@ import { getDiscardReason, rankScore, scoreItem } from "./score.js";
 import { summarizeItem, testLlm } from "./summarize.js";
 import { loadItems, loadState, saveState, selectWindowItems, upsertItems, saveItems } from "./store.js";
 import { fetchYouTubeTranscript, resolveYouTubeFeedUrl } from "./ingest/youtube.js";
+import { readLatestRunReport, summarizeRunReport, writeRunReport } from "./runReport.js";
 
 const args = process.argv.slice(2);
 const command = args[0] || "help";
@@ -30,6 +31,7 @@ async function main(command, argv) {
   if (command === "llm") return cmdLlm(argv);
   if (command === "media") return cmdMedia(argv);
   if (command === "youtube") return cmdYoutube(argv);
+  if (command === "status") return cmdStatus();
   throw new Error(`Unknown command: ${command}`);
 }
 
@@ -72,7 +74,7 @@ async function cmdIngest(argv) {
   const { config, window } = loadContext(argv);
   const logger = createLogger(argv);
   const sources = selectSources(config.sources, argv);
-  logger(`ingest: ${sources.length} source(s), ${window.since.toISOString()} -> ${window.until.toISOString()}`);
+  logger?.(`ingest: ${sources.length} source(s), ${window.since.toISOString()} -> ${window.until.toISOString()}`);
   const { items, errors } = await ingestSources(sources, window, { logger });
   reportErrors(errors);
   if (argv.includes("--dry-run")) {
@@ -86,10 +88,11 @@ async function cmdIngest(argv) {
 
 async function cmdBrief(argv) {
   const { config, state, window } = loadContext(argv);
+  const startedAt = new Date().toISOString();
   const logger = createLogger(argv);
   const items = filterItemsBySource(selectWindowItems(loadItems(), window.since, window.until), argv);
-  logger(`brief: ${items.length} stored item(s) in window`);
-  const processed = await processItems(items, config, {
+  logger?.(`brief: ${items.length} stored item(s) in window`);
+  const { items: processed, stats } = await processItems(items, config, {
     offline: argv.includes("--offline"),
     refresh: argv.includes("--refresh"),
     limit: Number(readOption(argv, "--limit") || 0),
@@ -99,14 +102,26 @@ async function cmdBrief(argv) {
   const file = writeBrief(markdown, window.until);
   saveItems(mergeProcessed(loadItems(), processed));
   saveState({ ...state, lastBriefAt: window.until.toISOString() });
+  const reportPath = writeRunReport(createRunReport({
+    command: "brief",
+    startedAt,
+    window,
+    sources: sourceNamesFromItems(items),
+    ingest: { fetched: 0, inserted: 0, stored: loadItems().length, errors: 0 },
+    processing: stats,
+    outputFile: file,
+    status: "success"
+  }));
+  logger?.(`report: ${reportPath}`);
   console.log(`Wrote ${file} with ${processed.length} item(s).`);
 }
 
 async function cmdRun(argv) {
   const { config, state, window } = loadContext(argv);
+  const startedAt = new Date().toISOString();
   const logger = createLogger(argv);
   const sources = selectSources(config.sources, argv);
-  logger(`run: ${sources.length} source(s), ${window.since.toISOString()} -> ${window.until.toISOString()}`);
+  logger?.(`run: ${sources.length} source(s), ${window.since.toISOString()} -> ${window.until.toISOString()}`);
   const { items, errors } = await ingestSources(sources, window, { logger });
   reportErrors(errors);
   if (argv.includes("--dry-run")) {
@@ -115,10 +130,10 @@ async function cmdRun(argv) {
     for (const item of items) console.log(`${item.publishedAt}\t${item.sourceName}\t${item.title}`);
     return;
   }
-  upsertItems(items);
+  const upsert = upsertItems(items);
   const selected = filterItemsBySource(selectWindowItems(loadItems(), window.since, window.until), argv);
-  logger(`run: ${selected.length} item(s) selected for scoring/summarization`);
-  const processed = await processItems(selected, config, {
+  logger?.(`run: ${selected.length} item(s) selected for scoring/summarization`);
+  const { items: processed, stats } = await processItems(selected, config, {
     offline: argv.includes("--offline"),
     refresh: argv.includes("--refresh"),
     limit: Number(readOption(argv, "--limit") || 0),
@@ -128,6 +143,18 @@ async function cmdRun(argv) {
   const markdown = renderBrief(processed, window);
   const file = writeBrief(markdown, window.until);
   saveState({ ...state, lastBriefAt: window.until.toISOString() });
+  const reportPath = writeRunReport(createRunReport({
+    command: "run",
+    startedAt,
+    window,
+    sources: sources.map((source) => source.name),
+    ingest: { fetched: items.length, inserted: upsert.inserted, stored: upsert.total, errors: errors.length },
+    processing: stats,
+    outputFile: file,
+    errors,
+    status: errors.length > 0 ? "success_with_warnings" : "success"
+  }));
+  logger?.(`report: ${reportPath}`);
   console.log(`Wrote ${file} with ${processed.length} item(s).`);
 }
 
@@ -210,6 +237,10 @@ async function cmdYoutube(argv) {
   throw new Error("Usage: signalos youtube transcript|feed-url");
 }
 
+function cmdStatus() {
+  console.log(summarizeRunReport(readLatestRunReport()));
+}
+
 function maskLlmConfig(llm) {
   return {
     ...llm,
@@ -222,18 +253,33 @@ async function processItems(items, config, options) {
   const quality = new Map(config.sources.map((source) => [source.name, source.quality || 5]));
   const selectedItems = options.limit > 0 ? items.slice(0, options.limit) : items;
   const processed = [];
+  const stats = {
+    selected: items.length,
+    limitedTo: selectedItems.length,
+    processed: 0,
+    candidates: 0,
+    discarded: 0,
+    cacheHits: 0,
+    summarized: 0,
+    fallbacks: 0
+  };
   let index = 0;
   for (const item of selectedItems) {
     index += 1;
+    stats.processed += 1;
     const discardReason = getDiscardReason(item);
     if (discardReason) {
+      stats.discarded += 1;
       options.logger?.(`skip ${index}/${selectedItems.length}: ${item.sourceName} - ${item.title} (${discardReason})`);
       processed.push({ ...item, score: 0, rank: "discarded", discardReason });
       continue;
     }
     const cached = !options.refresh && hasValidSummaryCache(item, config);
+    if (cached) stats.cacheHits += 1;
+    if (!cached) stats.summarized += 1;
     options.logger?.(`${cached ? "cache hit" : "summarize"} ${index}/${selectedItems.length}: ${item.sourceName} - ${item.title}`);
     const summary = cached ? item.summary : await summarizeItem(item, config, options);
+    if (summary?.builderNotes?.includes("fallback:")) stats.fallbacks += 1;
     const itemWithSummary = cached ? item : attachSummaryCache(item, config, summary);
     const scoreInput = {
       ...itemWithSummary,
@@ -247,10 +293,12 @@ async function processItems(items, config, options) {
     };
     const score = scoreItem(scoreInput, quality.get(item.sourceName) || 5);
     const rank = rankScore(score, itemWithSummary);
+    if (rank === "discarded") stats.discarded += 1;
     processed.push({ ...itemWithSummary, score, rank });
   }
-  options.logger?.(`brief candidates: ${processed.filter((item) => item.rank !== "discarded").length}/${processed.length}`);
-  return processed.sort((a, b) => (b.score || 0) - (a.score || 0));
+  stats.candidates = processed.filter((item) => item.rank !== "discarded").length;
+  options.logger?.(`brief candidates: ${stats.candidates}/${processed.length}`);
+  return { items: processed.sort((a, b) => (b.score || 0) - (a.score || 0)), stats };
 }
 
 function mergeProcessed(allItems, processed) {
@@ -295,6 +343,28 @@ function reportErrors(errors) {
   }
 }
 
+function createRunReport({ command, startedAt, window, sources, ingest, processing, outputFile, errors = [], status }) {
+  return {
+    command,
+    status,
+    startedAt,
+    completedAt: new Date().toISOString(),
+    window: {
+      since: window.since.toISOString(),
+      until: window.until.toISOString()
+    },
+    sources,
+    ingest,
+    processing,
+    outputFile,
+    errors
+  };
+}
+
+function sourceNamesFromItems(items) {
+  return [...new Set(items.map((item) => item.sourceName))];
+}
+
 function createLogger(argv) {
   if (argv.includes("--quiet")) return undefined;
   return (message) => console.error(`[signalos] ${message}`);
@@ -311,6 +381,7 @@ Usage:
   signalos ingest [--source name] [--since ISO] [--until ISO] [--dry-run] [--quiet]
   signalos brief [--source name] [--since ISO] [--until ISO] [--offline] [--refresh] [--limit n] [--quiet]
   signalos run [--source name] [--since ISO] [--until ISO] [--dry-run] [--offline] [--refresh] [--limit n] [--quiet]
+  signalos status
   signalos llm config
   signalos llm set [--provider name] [--base-url url] [--api-style chat_completions|responses] [--model id] [--api-key-env name]
   signalos llm test [--prompt text]
