@@ -44,6 +44,54 @@ export const DEFAULT_CONFIG = {
       type: "rss",
       url: "https://www.latent.space/feed",
       quality: 9
+    },
+    {
+      name: "Simon Willison",
+      type: "rss",
+      url: "https://simonwillison.net/atom/everything/",
+      quality: 10
+    },
+    {
+      name: "Hugging Face Blog",
+      type: "rss",
+      url: "https://huggingface.co/blog/feed.xml",
+      quality: 10
+    },
+    {
+      name: "One Useful Thing",
+      type: "rss",
+      url: "https://www.oneusefulthing.org/feed",
+      quality: 9
+    },
+    {
+      name: "Sebastian Raschka",
+      type: "rss",
+      url: "https://magazine.sebastianraschka.com/feed",
+      quality: 9
+    },
+    {
+      name: "Hacker News 200+",
+      type: "rss",
+      url: "https://hnrss.org/frontpage?points=200",
+      quality: 9
+    },
+    {
+      name: "vLLM Blog",
+      type: "rss",
+      url: "https://vllm.ai/blog/rss.xml",
+      quality: 8
+    },
+    {
+      name: "Together AI Blog",
+      type: "rss",
+      url: "https://www.together.ai/blog/rss.xml",
+      quality: 8
+    },
+    {
+      name: "GitHub Engineering",
+      type: "rss",
+      url: "https://github.blog/engineering.atom",
+      quality: 8
     }
   ]
 };
