@@ -3,6 +3,7 @@
   "timezone": "Asia/Shanghai",
   "language": "zh-CN",
   "model": "glm-4.6",
+  "maxLookbackHours": 48,
   "llm": {
     "provider": "taishi",
     "baseUrl": "https://relay.tuyoo.com/v1",
@@ -18,12 +19,6 @@
       "name": "OpenAI Blog",
       "type": "rss",
       "url": "https://openai.com/news/rss.xml",
-      "quality": 10
-    },
-    {
-      "name": "Anthropic News",
-      "type": "rss",
-      "url": "https://www.anthropic.com/sitemap.xml",
       "quality": 10
     },
     {

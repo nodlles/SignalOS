@@ -9,6 +9,7 @@ export const DEFAULT_CONFIG = {
   timezone: "Asia/Shanghai",
   language: "zh-CN",
   model: "glm-4.6",
+  maxLookbackHours: 48,
   llm: {
     provider: "taishi",
     baseUrl: "https://relay.tuyoo.com/v1",
@@ -24,12 +25,6 @@ export const DEFAULT_CONFIG = {
       name: "OpenAI Blog",
       type: "rss",
       url: "https://openai.com/news/rss.xml",
-      quality: 10
-    },
-    {
-      name: "Anthropic News",
-      type: "rss",
-      url: "https://www.anthropic.com/sitemap.xml",
       quality: 10
     },
     {
@@ -88,6 +83,14 @@ export function getBriefWindow(config, state, overrides = {}) {
 
   if (!overrides.since && since >= until) {
     since = new Date(until.getTime() - 24 * 60 * 60 * 1000);
+  }
+
+  if (!overrides.since) {
+    const maxLookbackMs = Math.max(1, Number(config.maxLookbackHours) || 48) * 60 * 60 * 1000;
+    const earliest = new Date(until.getTime() - maxLookbackMs);
+    if (since < earliest) {
+      since = earliest;
+    }
   }
 
   if (Number.isNaN(since.getTime()) || Number.isNaN(until.getTime())) {

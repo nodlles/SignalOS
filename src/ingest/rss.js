@@ -24,13 +24,14 @@ export function parseFeed(xml, source) {
     const link = cleanXml(readLink(entry) || readTag(entry, "loc"));
     const videoId = cleanXml(readTag(entry, "yt:videoId"));
     const title = cleanXml(readTag(entry, "title") || titleFromUrl(link) || "Untitled");
-    const published = cleanXml(
+    const rawPublished = cleanXml(
         readTag(entry, "pubDate") ||
         readTag(entry, "published") ||
         readTag(entry, "updated") ||
-        readTag(entry, "lastmod") ||
-        new Date().toISOString()
+        readTag(entry, "lastmod")
     );
+    const hasRealDate = Boolean(rawPublished) && !Number.isNaN(new Date(rawPublished).getTime());
+    const published = hasRealDate ? rawPublished : new Date().toISOString();
     const content = cleanXml(
       readTag(entry, "content:encoded") ||
         readTag(entry, "summary") ||
@@ -47,13 +48,14 @@ export function parseFeed(xml, source) {
       sourceName: source.name,
       sourceType: source.type,
       publishedAt: normalizeDate(published),
+      hasRealDate,
       fetchedAt: new Date().toISOString(),
       content,
       videoId: videoId || undefined,
       rightsStatus: source.type === "youtube" || source.type === "podcast" ? "commentary_fair_use_review" : undefined,
       transformCandidates: source.type === "youtube" || source.type === "podcast" ? [] : undefined
     };
-  }).filter((item) => item.url);
+  }).filter((item) => item.url && item.hasRealDate);
 }
 
 function titleFromUrl(url) {

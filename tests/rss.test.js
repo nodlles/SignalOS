@@ -53,4 +53,17 @@ assert.equal(youtubeItems[0].videoId, "dQw4w9WgXcQ");
 assert.equal(youtubeItems[0].sourceType, "youtube");
 assert.match(youtubeItems[0].content, /production agent workflow/);
 
+const undatedItems = parseFeed(`<?xml version="1.0"?>
+<urlset>
+  <url><loc>https://example.com/careers</loc></url>
+  <url><loc>https://example.com/company</loc></url>
+  <url>
+    <loc>https://example.com/news/real-post</loc>
+    <lastmod>2026-04-30T10:00:00.000Z</lastmod>
+  </url>
+</urlset>`, source);
+
+assert.equal(undatedItems.length, 1, "items without pubDate/lastmod should be dropped");
+assert.equal(undatedItems[0].url, "https://example.com/news/real-post");
+
 console.log("rss parser tests passed");

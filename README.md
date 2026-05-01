@@ -74,6 +74,10 @@ node src/cli.js youtube transcript "https://www.youtube.com/watch?v=VIDEO_ID"
 
 在 zsh 里，带 `?` 的 URL 需要加引号。
 
+## 信源备注
+
+Anthropic 官方目前没有暴露新闻 RSS（`/news/rss.xml`、`/rss.xml` 均 404），因此默认配置里没有 Anthropic 源。如需接入，可以通过 RSSHub 或类似聚合服务代理，再作为普通 RSS 源加入。
+
 ## 太石 LLM 网关
 
 默认 LLM 配置来自 `/Users/lixin/Downloads/太石LLM网关服务手册.md`：
